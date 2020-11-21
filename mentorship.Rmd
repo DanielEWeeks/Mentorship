@@ -18,6 +18,10 @@ output:
     toc_depth: '3'
     code_folding: show
 #   md_extensions: +raw_attribute
+  github_document:
+    toc: true
+    number_sections: true
+    toc_depth: 3
 ---
 
 ```{r,echo=FALSE,message=FALSE,warning=FALSE}
@@ -60,6 +64,8 @@ https://pubmed.ncbi.nlm.nih.gov/33203848/
 
 # The data
 
+## The input data
+
 The input data are from the 'bedoor/Mentorship' GitHub repository at
 
 https://github.com/bedoor/Mentorship
@@ -68,12 +74,25 @@ Their repository is described as:
 
 'This repository includes all data used in "The Association between Early Career Informal Mentorship in Academic Collaborations and Junior Author Performance".'
 
-
-
 ```{r}
-a <- read_csv(file = "Mentorship/Repository_Data/Data_7yearcutoff.csv", n_max = 50000)
+LinesRead <- 100000
+inFile <- "Mentorship/Repository_Data/Data_7yearcutoff.csv"
+a <- read_csv(file = inFile, n_max = LinesRead)
 names(a)
 ```
+
+```{r}
+total_records <- as.integer(system2("wc",
+                                    args = c("-l",
+                                             inFile,
+                                             " | awk '{print $1}'"),
+                                    stdout = TRUE))
+total_records
+```
+
+## Disclaimer: For speed, only read in the first `r LinesRead` lines
+
+To speed up the analyses, we read only the first `r LinesRead` lines of the input file, instead of reading all `r total_records` lines.
 
 ## Problem: No gender information for mentors
 
@@ -83,6 +102,8 @@ There is no data dictionary, so we are left to infer what is in each column of t
 
 
 # ProtegeFirstPubYear
+
+# Distribution of ProtegeFirstPubYear
 
 "Year of the protege’s first publication: The year in which the protege published their first mentored paper."
 
@@ -124,6 +145,11 @@ p <- ggplot(data=a, aes(x=x) ) +
 p
 ```
 
+## Problem: ProtegeFirstPubYear time range is very large
+
+in the first `r LinesRead` lines of this data set, the `ProtegeFirstPubYear` ranges from `r min(a$ProtegeFirstPubYear)` to `r max(a$ProtegeFirstPubYear)`.  It seems that it would be very difficult to properly compare the impact factors of papers published in `r `min(a$ProtegeFirstPubYear)`, well before the advent of team science and the current deluge of scientific publications, to those published as recently `r max(a$ProtegeFirstPubYear)`.
+
+
 # NumYearsPostMentorship
 
 "The number of years post mentorship: Since our dataset is up to Dec 31st 2019,
@@ -131,7 +157,7 @@ we are only able to calculate c5—the number of citations accumulated five year
 
 ## Problem: Error in the equation for NumYearsPostMentorship
 
-Note that the stated equation of `2015 - (x + 6)` for computing the number of years post mentorship is not what was used, as instead `2015 - (x + 2)`, where `x` is the year the protege's paper was first published:
+Note that the stated equation of `2015 - (x + 6)` for computing the number of years post mentorship is not what was used, as instead `2015 - (x + 2)`, where `x` is the year the protege's paper was first published, as we see here in the first `r LinesRead` lines of the input file:
 
 ```{r}
 all.equal(a$NumYearsPostMentorship, 2015 -(a$ProtegeFirstPubYear + 2))
@@ -152,7 +178,13 @@ ggMarginal(p, type="histogram")
 
 ```
 
+## Problem: some values of `NumYearsPostMentorship` are unrealistically large
+
+In the first `r LinesRead` lines of the input file of this data set, there are values of `NumYearsPostMentorship` as large as `r max(a$NumYearsPostMentorship)`.  These values are unrealistically large. 
+
 # AvgMentorsAcAges
+
+## Distribution of AvgMentorsAcAges
 
 "Average academic age of mentors: This is computed for any given protege by first
 computing the academic age of each mentor in the year of their first publication with the protege, and then averaging these numbers over all the mentors."
@@ -170,6 +202,13 @@ ggplot(data = a, mapping = aes(x = ProtegeFirstPubYear, y = AvgMentorsAcAges, co
 ggplot(data = a, mapping = aes(x = ProtegeFirstPubYear, y = AvgMentorsAcAges)) + geom_point() + facet_grid(~ ProtegeGender) +
   ggtitle("ProtegeFirstPubYear vs. AvgMentorsAcAges by ProtegeGender")
 ```
+
+## Problem: some `AvgMentorsAcAges` are unrealistically large
+
+There are `AvgMentorsAcAges` as large as `r max(a$AvgMentorsAcAges)` in the first `r LinesRead` lines of this data set.  This is unrealistically large. 
+
+Among proteges who published their first paper after 2000, there are `AvgMentorsAcAges` as large as `r max(a[a$ProtegeFirstPubYear > 2000, ]$AvgMentorsAcAges)` in this data set.  Should we be evaluating the mentorship effects of mentors who were born than 200 years ago?
+
 
 # Avg_c5
 
@@ -315,13 +354,94 @@ ggplot(data = a, mapping = aes(x = ProtegeFirstPubYear, y = numMentors)) + geom_
 
 How could someone possibly really have more than a handful of mentors?
 
-In this data set, there are individuals with `r max(a$numMentors)` mentors!
+In the first `r LinesRead` lines of this data set, there are individuals with `r max(a$numMentors)` mentors!
 
 The Supplement states that:
 
 "Whenever a junior scientist publishes a paper with a senior scientist, we consider the former to be a protege, and the latter to be a mentor, as long as they authored at least one paper with 20 or less co-authors and share the same discipline and US-based affiliation."
 
-Oh, but we are really measuring co-authorship at the same US-based affiliation on joint papers with 20 or less co-authors.    
+Oh, but we are really measuring co-authorship at the same US-based affiliation on joint papers with 20 or less co-authors. 
+
+# Summary
+
+Here I examine the data provided by the authors of this paper:
+
+AlShebli B, Makovi K, Rahwan T. The association between early career informal mentorship in academic collaborations and junior author performance. Nat Commun. 2020 Nov 17;11(1):5855. doi: 10.1038/s41467-020-19723-8. PMID: 33203848.
+https://pubmed.ncbi.nlm.nih.gov/33203848/
+
+For speed, I examined only the first `r LinesRead` lines of the data file `r inFile` from the 'bedoor/Mentorship' GitHub repository at
+
+https://github.com/bedoor/Mentorship
+
+Their repository is described by the authors as:
+
+'This repository includes all data used in "The Association between Early Career Informal Mentorship in Academic Collaborations and Junior Author Performance".'
+
+## Problem: No gender information for mentors
+
+There does not appear to be any information in the provided file about the mentor's gender, so the provided data do not appear to be 'all the data'.
+
+## Problem: ProtegeFirstPubYear time range is very large
+
+In the first `r LinesRead` lines of this data set, the `ProtegeFirstPubYear` ranges from `r min(a$ProtegeFirstPubYear)` to `r max(a$ProtegeFirstPubYear)`.  It seems that it would be very difficult to properly compare the impact factors of papers published in `r min(a$ProtegeFirstPubYear)`, well before the advent of team science and the current deluge of scientific publications, to those published as recently `r max(a$ProtegeFirstPubYear)`.
+
+```{r, dpi=600, dev='png', echo=FALSE}
+ggplot(data = a, mapping = aes(x = ProtegeFirstPubYear, y = Avg_c5)) + geom_point() + facet_grid( ~ ProtegeGender) +
+  ggtitle("ProtegeFirstPubYear vs. Avg_c5")
+```
+
+## Problem: Error in the equation for NumYearsPostMentorship
+
+Note that the stated equation of `2015 - (x + 6)` for computing the number of years post mentorship is not what was used, as instead `2015 - (x + 2)`, where `x` is the year the protege's paper was first published.
+
+## Problem: some values of `NumYearsPostMentorship` are unrealistically large
+
+In the first `r LinesRead` lines of the input file of this data set, there are values of `NumYearsPostMentorship` as large as `r max(a$NumYearsPostMentorship)`.  These values are unrealistically large. 
+
+```{r, dpi=600, dev='png', echo=FALSE}
+a$ProtegeGender <- as.factor(a$Pr0tegeGender)
+p <- ggplot(data = a, mapping = aes(x = ProtegeFirstPubYear, y = NumYearsPostMentorship)) + geom_point() + ggtitle("NumYearsPostMentorship vs. ProtegeFirstPubYear")
+ggMarginal(p, type="histogram") 
+
+```
+
+## Problem: some `AvgMentorsAcAges` are unrealistically large
+
+There are `AvgMentorsAcAges` as large as `r max(a$AvgMentorsAcAges)` in the first `r LinesRead` lines of this data set.  This is unrealistically large. 
+
+Among proteges who published their first paper after 2000, there are `AvgMentorsAcAges` as large as `r max(a[a$ProtegeFirstPubYear > 2000, ]$AvgMentorsAcAges)` in this data set.  Should we be evaluating the mentorship effects of mentors who were born than 200 years ago?
+
+```{r, dpi=600, dev='png', echo=FALSE}
+ggplot(data = a, mapping = aes(x = ProtegeFirstPubYear, y = AvgMentorsAcAges)) + geom_point() + facet_grid(~ ProtegeGender) +
+  ggtitle("ProtegeFirstPubYear vs. AvgMentorsAcAges by ProtegeGender")
+```
+
+## Problem with Avg_c10: Cannot compute a value `Avg_c10` for recent publications
+
+As the dataset is up to Dec 31st 2019, how can one compute a valid `Avg_c10` for someone whose first publication year was 2012 or 2013?
+
+```{r, dpi=600, dev='png', echo=FALSE}
+ggplot(data = a, mapping = aes(x = ProtegeFirstPubYear, y = Avg_c10)) + geom_point() + facet_grid( ~ ProtegeGender) +
+  ggtitle("ProtegeFirstPubYear vs. Avg_c10")
+```
+
+## Problem: some `numMentors` values are too large
+
+How could someone possibly really have more than a handful of mentors?
+
+In the first `r LinesRead` lines of this data set, there are individuals with `r max(a$numMentors)` mentors!
+
+The Supplement states that:
+
+"Whenever a junior scientist publishes a paper with a senior scientist, we consider the former to be a protege, and the latter to be a mentor, as long as they authored at least one paper with 20 or less co-authors and share the same discipline and US-based affiliation."
+
+Oh, but we are really measuring **co-authorship** at the same US-based affiliation on joint papers with 20 or less co-authors. 
+
+```{r, dpi=600, dev='png', echo=FALSE}
+ggplot(data = a, mapping = aes(x = ProtegeFirstPubYear, y = numMentors)) + geom_point() + facet_grid( ~ ProtegeGender) +
+  ggtitle("ProtegeFirstPubYear vs. numMentors")
+```
+
 
 # Generating GitHub Markdown
 
